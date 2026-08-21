@@ -14,6 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends $BASE_PACKAGES 
     && rm -f /etc/ssh/ssh_host_* \
     && rm -rf /var/lib/apt/lists/*
 
+RUN HOME=/etc/skel RUNZSH=no CHSH=no \
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
+    && printf 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"\n' | tee -a /etc/skel/.zshrc /etc/skel/.bashrc
+
 ARG APT_PACKAGES="podman"
 RUN apt-get update && apt-get install -y --no-install-recommends $APT_PACKAGES \
     && rm -rf /var/lib/apt/lists/*
@@ -82,12 +86,4 @@ RUN for c in $BREW_CASKS; do \
       fi; \
     done
 
-USER root
-RUN HOME=/etc/skel RUNZSH=no CHSH=no \
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
-    && printf 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"\n' | tee -a /etc/skel/.zshrc /etc/skel/.bashrc \
-    && chown -R $USERNAME:$USERNAME /etc/skel
-
-USER $USERNAME
-WORKDIR $HOME
 CMD ["/usr/bin/zsh"]
