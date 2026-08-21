@@ -1,0 +1,64 @@
+image:
+  repository: ghcr.io/brhelwig/dev-container
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+# The image's CMD is an interactive zsh with no long-running foreground
+# process, so the pod overrides it to stay up. Get a shell with
+# `kubectl exec -it deploy/<release> -- zsh`.
+command: ["sleep"]
+args: ["infinity"]
+
+# Pins scheduling to one CPU architecture via the standard
+# kubernetes.io/arch node label. Leave empty to let Kubernetes pick either
+# (the image is published for both linux/amd64 and linux/arm64).
+arch: ""
+
+# Arbitrary node selection, e.g. to pin to a GKE nodepool:
+#   nodeSelector:
+#     cloud.google.com/gke-nodepool: my-pool
+nodeSelector: {}
+affinity: {}
+tolerations: []
+
+resources:
+  requests:
+    cpu: "2"
+    memory: 4Gi
+  limits:
+    cpu: "4"
+    memory: 8Gi
+
+persistence:
+  enabled: true
+  # Empty uses the cluster's default StorageClass (e.g. Docker Desktop's
+  # "hostpath"). Set explicitly on GKE, e.g. "standard-rwo" or "premium-rwo".
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 20Gi
+  # Bind to a PVC you already created instead of letting the chart make one.
+  existingClaim: ""
+
+# k3s and podman need root-level kernel access (overlayfs, cgroups, network
+# namespaces) to do anything, so this pod must run privileged. That means
+# GKE Standard, not Autopilot (Autopilot rejects privileged pods), and a
+# namespace that doesn't enforce a "restricted"/"baseline" Pod Security
+# Standard.
+securityContext:
+  privileged: true
+
+podSecurityContext:
+  # Matches the image's dev user (uid/gid 1000), so the PVC is
+  # group-writable without a manual chown.
+  fsGroup: 1000
+
+podAnnotations: {}
+podLabels: {}

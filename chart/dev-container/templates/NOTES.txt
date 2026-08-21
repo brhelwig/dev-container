@@ -1,0 +1,17 @@
+Get a shell in your dev container:
+
+  kubectl exec -it --namespace {{ .Release.Namespace }} deploy/{{ include "dev-container.fullname" . }} -- zsh
+
+k3s and podman need a privileged pod to run (this chart sets
+securityContext.privileged: true by default). If the Deployment never
+reaches Ready, check that:
+  - you're on GKE Standard, not Autopilot (Autopilot rejects privileged pods)
+  - the target namespace doesn't enforce a "restricted" or "baseline"
+    Pod Security Standard
+
+{{- if .Values.persistence.enabled }}
+/home/dev is on a PersistentVolumeClaim and survives pod restarts.
+{{- else }}
+persistence.enabled is false — /home/dev is an emptyDir and will NOT
+survive a pod restart.
+{{- end }}
