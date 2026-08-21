@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 
-ARG BASE_PACKAGES="build-essential ca-certificates curl file git git-lfs gnupg locales man-db openssh-server procps python3 sudo unzip zsh"
+ARG BASE_PACKAGES="build-essential ca-certificates curl file git git-lfs gnupg locales man-db openssh-server procps python3 sudo tini unzip zsh"
 RUN apt-get update && apt-get install -y --no-install-recommends $BASE_PACKAGES \
     && git lfs install --system \
     && sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen && locale-gen \
@@ -71,7 +71,7 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}
 ARG BREW_TAPS="terraform-linters/tap hashicorp/tap"
 RUN for t in $BREW_TAPS; do brew tap "$t" && { brew trust "$t" || true; }; done
 
-ARG BREW_FORMULAE="ansible awscli azure-cli cloudflare-wrangler cloudflared fzf gh go gum hadolint hashicorp/tap/terraform helm helmfile htop jq k9s kubectl kubectx kustomize lazygit lazysql mosh nano node pre-commit sops sqlite uv watch yq zellij zstd"
+ARG BREW_FORMULAE="ansible awscli azure-cli cloudflare-wrangler cloudflared fzf gh go gum hadolint hashicorp/tap/terraform helm helmfile htop jq k9s kubectl kubectx kustomize lazygit lazysql mosh nano node pre-commit sops sqlite tailscale uv watch yq zellij zstd"
 RUN brew install $BREW_FORMULAE
 
 ARG BREW_CASKS="claude-code@latest gcloud-cli tflint"
@@ -86,4 +86,12 @@ RUN for c in $BREW_CASKS; do \
       fi; \
     done
 
+USER root
+COPY sshd_config /etc/ssh/dev-container-sshd.conf
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+USER $USERNAME
+WORKDIR $HOME
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 CMD ["/usr/bin/zsh"]

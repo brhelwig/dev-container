@@ -22,11 +22,30 @@ serviceAccount:
 
 replicaCount: 1
 
-# The image's CMD is an interactive zsh with no long-running foreground
-# process, so the pod overrides it to stay up. Get a shell with
+# The image's own ENTRYPOINT (tini + entrypoint.sh) is what starts sshd,
+# Tailscale, the VS Code tunnel, and the zellij session below — leave
+# `command` empty so Kubernetes uses it rather than replacing it outright.
+# `args` only overrides the image's CMD (an interactive zsh with no
+# long-running foreground process on its own), so entrypoint.sh's final
+# `exec "$@"` becomes `exec sleep infinity`, keeping the pod alive with no
+# tty while everything above still starts. Get a shell with
 # `kubectl exec -it statefulset/<release> -- zsh`.
-command: ["sleep"]
-args: ["infinity"]
+command: []
+args: ["sleep", "infinity"]
+
+# Public keys to seed into ~/.ssh/authorized_keys for keyless SSH login,
+# e.g. ["ssh-ed25519 AAAA... me@laptop"]. Merged in on every start without
+# clobbering keys added later by hand.
+sshAuthorizedKeys: []
+
+tailscale:
+  # Name of a Secret (that you create) holding a Tailscale auth key. Not
+  # set by default — Tailscale is a no-op until this points at one, since
+  # there's no way to authenticate it non-interactively otherwise. Kept out
+  # of plain values on purpose: it's a credential, so this only accepts a
+  # Secret reference, never the key itself.
+  authKeySecretName: ""
+  authKeySecretKey: authkey
 
 # Pins scheduling to one CPU architecture via the standard
 # kubernetes.io/arch node label. Leave empty to let Kubernetes pick either

@@ -29,31 +29,30 @@ spec:
       serviceAccountName: {{ include "dev-container.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      initContainers:
-        - name: seed-home
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              if [ ! -e /home/dev/.seeded ]; then
-                cp -a /etc/skel/. /home/dev/
-                chown -R {{ .Values.podSecurityContext.fsGroup }}:{{ .Values.podSecurityContext.fsGroup }} /home/dev
-                touch /home/dev/.seeded
-              fi
-          securityContext:
-            runAsUser: 0
-          volumeMounts:
-            - name: home
-              mountPath: /home/dev
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.command }}
           command:
-            {{- toYaml .Values.command | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           args:
             {{- toYaml .Values.args | nindent 12 }}
+          {{- if or .Values.sshAuthorizedKeys .Values.tailscale.authKeySecretName }}
+          env:
+            {{- if .Values.sshAuthorizedKeys }}
+            - name: SSH_AUTHORIZED_KEYS
+              value: {{ join "\n" .Values.sshAuthorizedKeys | quote }}
+            {{- end }}
+            {{- if .Values.tailscale.authKeySecretName }}
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.tailscale.authKeySecretName }}
+                  key: {{ .Values.tailscale.authKeySecretKey }}
+            {{- end }}
+          {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           resources:

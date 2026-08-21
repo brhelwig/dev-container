@@ -51,6 +51,29 @@ Bind to a PVC you already created instead of letting the chart make one:
 helm install dev chart/dev-container --set persistence.existingClaim=my-home-pvc
 ```
 
+Keyless SSH login:
+
+```sh
+helm install dev chart/dev-container \
+  --set sshAuthorizedKeys[0]="ssh-ed25519 AAAA... me@laptop"
+```
+
+Tailscale — `tailscaled` always runs; by default you connect it the normal
+way, a one-time interactive login via `exec`:
+
+```sh
+kubectl exec -it statefulset/dev-dev-container -- sudo tailscale up
+```
+
+That prints a login URL to open in a browser. For a fully unattended
+bootstrap instead, create a Secret holding an auth key yourself first (the
+chart never takes the key as a plain value):
+
+```sh
+kubectl create secret generic ts-authkey --from-literal=authkey=tskey-...
+helm install dev chart/dev-container --set tailscale.authKeySecretName=ts-authkey
+```
+
 GKE Workload Identity, once the cluster/nodepool has it enabled and the GCP
 IAM binding is in place (`gcloud iam service-accounts add-iam-policy-binding
 <gsa> --role roles/iam.workloadIdentityUser --member "serviceAccount:<project>.svc.id.goog[<namespace>/dev-dev-container]"`):
@@ -68,7 +91,11 @@ helm install dev chart/dev-container \
 | `image.tag` | `latest` | Image tag |
 | `image.pullPolicy` | `IfNotPresent` | |
 | `imagePullSecrets` | `[]` | For a private registry |
-| `command`, `args` | `sleep`, `["infinity"]` | Keeps the pod up; the image's own `CMD` is an interactive shell with nothing to run without a tty |
+| `command` | `[]` | Leave empty — the image's own `ENTRYPOINT` starts sshd/Tailscale/the VS Code tunnel/zellij; setting this would replace it entirely |
+| `args` | `["sleep", "infinity"]` | Overrides only the image's `CMD` (an interactive shell with nothing to run without a tty), keeping the pod alive |
+| `sshAuthorizedKeys` | `[]` | Public keys to seed into `~/.ssh/authorized_keys` for keyless SSH login |
+| `tailscale.authKeySecretName` | `""` | Secret holding a Tailscale auth key, for unattended `tailscale up`; leave empty to do it manually via `exec` instead |
+| `tailscale.authKeySecretKey` | `authkey` | Key within that Secret |
 | `arch` | `""` | `amd64` or `arm64` to pin scheduling via `kubernetes.io/arch`; empty lets either run |
 | `nodeSelector` | `{}` | Arbitrary node selection, e.g. a GKE nodepool label |
 | `affinity` | `{}` | |
@@ -92,8 +119,10 @@ Only `/home/dev` is persisted. k3s and podman state live in the pod's own
 writable layer and are lost when the pod is recreated — the container is
 disposable, the home directory isn't.
 
-An initContainer seeds `/home/dev` from the image's `/etc/skel` (oh-my-zsh,
+The image's `entrypoint.sh` seeds `/home/dev` from `/etc/skel` (oh-my-zsh,
 `.zshrc`, the brew `shellenv` line) the first time the volume is used,
 since a freshly provisioned PVC — or an `emptyDir`, if
 `persistence.enabled: false` — starts empty regardless of what the image
-itself has baked in.
+itself has baked in. The same script starts `sshd`, `tailscaled`, the VS
+Code tunnel (if already signed in), and a persistent `zellij` session named
+`dev` — join it with `kubectl exec -it statefulset/<release> -- zellij attach dev`.
