@@ -2,6 +2,22 @@ Get a shell in your dev container:
 
   kubectl exec -it --namespace {{ .Release.Namespace }} statefulset/{{ include "dev-container.fullname" . }} -- zsh
 
+Or join the persistent zellij session the pod starts on its own:
+
+  kubectl exec -it --namespace {{ .Release.Namespace }} statefulset/{{ include "dev-container.fullname" . }} -- zellij attach dev
+
+sshd is running (keyless auth only — set sshAuthorizedKeys to let a key in).
+{{- if .Values.tailscale.authKeySecretName }}
+Tailscale will connect automatically using the auth key in {{ .Values.tailscale.authKeySecretName }}.
+{{- else }}
+Tailscale's daemon is running but not connected. Connect it with:
+
+  kubectl exec -it --namespace {{ .Release.Namespace }} statefulset/{{ include "dev-container.fullname" . }} -- sudo tailscale up
+{{- end }}
+The VS Code tunnel needs a one-time sign-in:
+
+  kubectl exec -it --namespace {{ .Release.Namespace }} statefulset/{{ include "dev-container.fullname" . }} -- code tunnel user login
+
 The pod has a stable name and DNS entry:
 
   {{ include "dev-container.fullname" . }}-0.{{ include "dev-container.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local
