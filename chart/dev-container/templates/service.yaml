@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dev-container.fullname" . }}-headless
+  labels:
+    {{- include "dev-container.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "dev-container.selectorLabels" . | nindent 4 }}

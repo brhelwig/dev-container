@@ -8,11 +8,23 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+serviceAccount:
+  create: true
+  # Defaults to the chart's fullname if empty.
+  name: ""
+  # For GKE Workload Identity, e.g.:
+  #   iam.gke.io/gcp-service-account: my-gsa@my-project.iam.gserviceaccount.com
+  # Requires Workload Identity enabled on the cluster/nodepool and the
+  # matching `gcloud iam service-accounts add-iam-policy-binding ...
+  # roles/iam.workloadIdentityUser` binding on the GCP side — this chart
+  # only sets the annotation. Inert on Docker Desktop.
+  annotations: {}
+
 replicaCount: 1
 
 # The image's CMD is an interactive zsh with no long-running foreground
 # process, so the pod overrides it to stay up. Get a shell with
-# `kubectl exec -it deploy/<release> -- zsh`.
+# `kubectl exec -it statefulset/<release> -- zsh`.
 command: ["sleep"]
 args: ["infinity"]
 

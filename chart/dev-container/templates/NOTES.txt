@@ -1,9 +1,13 @@
 Get a shell in your dev container:
 
-  kubectl exec -it --namespace {{ .Release.Namespace }} deploy/{{ include "dev-container.fullname" . }} -- zsh
+  kubectl exec -it --namespace {{ .Release.Namespace }} statefulset/{{ include "dev-container.fullname" . }} -- zsh
+
+The pod has a stable name and DNS entry:
+
+  {{ include "dev-container.fullname" . }}-0.{{ include "dev-container.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local
 
 k3s and podman need a privileged pod to run (this chart sets
-securityContext.privileged: true by default). If the Deployment never
+securityContext.privileged: true by default). If the StatefulSet never
 reaches Ready, check that:
   - you're on GKE Standard, not Autopilot (Autopilot rejects privileged pods)
   - the target namespace doesn't enforce a "restricted" or "baseline"

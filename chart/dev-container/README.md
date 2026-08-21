@@ -2,7 +2,9 @@
 
 Runs `ghcr.io/brhelwig/dev-container` as a single persistent pod on Docker
 Desktop or GKE, amd64 or arm64, with a home directory that survives pod
-restarts.
+restarts. It's a `StatefulSet`, so the pod gets a stable name and DNS entry
+(`<release>-dev-container-0`) instead of a new random name every time it's
+recreated.
 
 ## Requirements
 
@@ -18,7 +20,7 @@ to give them that inside a container. This means:
 
 ```sh
 helm install dev chart/dev-container
-kubectl exec -it deploy/dev-dev-container -- zsh
+kubectl exec -it statefulset/dev-dev-container -- zsh
 ```
 
 ## Examples
@@ -49,6 +51,15 @@ Bind to a PVC you already created instead of letting the chart make one:
 helm install dev chart/dev-container --set persistence.existingClaim=my-home-pvc
 ```
 
+GKE Workload Identity, once the cluster/nodepool has it enabled and the GCP
+IAM binding is in place (`gcloud iam service-accounts add-iam-policy-binding
+<gsa> --role roles/iam.workloadIdentityUser --member "serviceAccount:<project>.svc.id.goog[<namespace>/dev-dev-container]"`):
+
+```sh
+helm install dev chart/dev-container \
+  --set serviceAccount.annotations."iam\.gke\.io/gcp-service-account"=my-gsa@my-project.iam.gserviceaccount.com
+```
+
 ## Values
 
 | Key | Default | Description |
@@ -73,7 +84,16 @@ helm install dev chart/dev-container --set persistence.existingClaim=my-home-pvc
 | `persistence.existingClaim` | `""` | Bind to a PVC you already created instead of the chart's own |
 | `securityContext.privileged` | `true` | Required for k3s/podman — see Requirements above |
 | `podSecurityContext.fsGroup` | `1000` | Matches the image's `dev` user so the PVC is writable without a manual `chown` |
+| `serviceAccount.create` | `true` | |
+| `serviceAccount.name` | `""` | Defaults to the chart's fullname |
+| `serviceAccount.annotations` | `{}` | Set `iam.gke.io/gcp-service-account` here for GKE Workload Identity |
 
 Only `/home/dev` is persisted. k3s and podman state live in the pod's own
 writable layer and are lost when the pod is recreated — the container is
 disposable, the home directory isn't.
+
+An initContainer seeds `/home/dev` from the image's `/etc/skel` (oh-my-zsh,
+`.zshrc`, the brew `shellenv` line) the first time the volume is used,
+since a freshly provisioned PVC — or an `emptyDir`, if
+`persistence.enabled: false` — starts empty regardless of what the image
+itself has baked in.
