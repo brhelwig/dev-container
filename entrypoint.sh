@@ -35,8 +35,6 @@ start_sshd() {
 }
 
 start_tailscale() {
-    # sudo resets PATH to its secure_path default, which doesn't include
-    # Homebrew's bin dir, so resolve these before invoking sudo.
     local tailscaled
     tailscaled="$(command -v tailscaled)"
     sudo mkdir -p /var/lib/tailscale

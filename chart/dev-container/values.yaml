@@ -10,51 +10,22 @@ fullnameOverride: ""
 
 serviceAccount:
   create: true
-  # Defaults to the chart's fullname if empty.
   name: ""
-  # For GKE Workload Identity, e.g.:
-  #   iam.gke.io/gcp-service-account: my-gsa@my-project.iam.gserviceaccount.com
-  # Requires Workload Identity enabled on the cluster/nodepool and the
-  # matching `gcloud iam service-accounts add-iam-policy-binding ...
-  # roles/iam.workloadIdentityUser` binding on the GCP side — this chart
-  # only sets the annotation. Inert on Docker Desktop.
   annotations: {}
 
 replicaCount: 1
 
-# The image's own ENTRYPOINT (tini + entrypoint.sh) is what starts sshd,
-# Tailscale, the VS Code tunnel, and the zellij session below — leave
-# `command` empty so Kubernetes uses it rather than replacing it outright.
-# `args` only overrides the image's CMD (an interactive zsh with no
-# long-running foreground process on its own), so entrypoint.sh's final
-# `exec "$@"` becomes `exec sleep infinity`, keeping the pod alive with no
-# tty while everything above still starts. Get a shell with
-# `kubectl exec -it statefulset/<release> -- zsh`.
 command: []
 args: ["sleep", "infinity"]
 
-# Public keys to seed into ~/.ssh/authorized_keys for keyless SSH login,
-# e.g. ["ssh-ed25519 AAAA... me@laptop"]. Merged in on every start without
-# clobbering keys added later by hand.
 sshAuthorizedKeys: []
 
 tailscale:
-  # Name of a Secret (that you create) holding a Tailscale auth key. Not
-  # set by default — Tailscale is a no-op until this points at one, since
-  # there's no way to authenticate it non-interactively otherwise. Kept out
-  # of plain values on purpose: it's a credential, so this only accepts a
-  # Secret reference, never the key itself.
   authKeySecretName: ""
   authKeySecretKey: authkey
 
-# Pins scheduling to one CPU architecture via the standard
-# kubernetes.io/arch node label. Leave empty to let Kubernetes pick either
-# (the image is published for both linux/amd64 and linux/arm64).
 arch: ""
 
-# Arbitrary node selection, e.g. to pin to a GKE nodepool:
-#   nodeSelector:
-#     cloud.google.com/gke-nodepool: my-pool
 nodeSelector: {}
 affinity: {}
 tolerations: []
@@ -69,26 +40,16 @@ resources:
 
 persistence:
   enabled: true
-  # Empty uses the cluster's default StorageClass (e.g. Docker Desktop's
-  # "hostpath"). Set explicitly on GKE, e.g. "standard-rwo" or "premium-rwo".
   storageClassName: ""
   accessModes:
     - ReadWriteOnce
   size: 20Gi
-  # Bind to a PVC you already created instead of letting the chart make one.
   existingClaim: ""
 
-# k3s and podman need root-level kernel access (overlayfs, cgroups, network
-# namespaces) to do anything, so this pod must run privileged. That means
-# GKE Standard, not Autopilot (Autopilot rejects privileged pods), and a
-# namespace that doesn't enforce a "restricted"/"baseline" Pod Security
-# Standard.
 securityContext:
   privileged: true
 
 podSecurityContext:
-  # Matches the image's dev user (uid/gid 1000), so the PVC is
-  # group-writable without a manual chown.
   fsGroup: 1000
 
 podAnnotations: {}
