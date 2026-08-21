@@ -1,0 +1,6 @@
+apiVersion: v2
+name: dev-container
+description: A persistent dev pod (podman + k3s included) for Docker Desktop or GKE
+type: application
+version: 0.1.0
+appVersion: "latest"
