@@ -26,7 +26,13 @@ RUN mkdir -p /etc/containers/registries.conf.d \
     && printf 'unqualified-search-registries = ["docker.io"]\n' \
         > /etc/containers/registries.conf.d/00-unqualified-docker.conf \
     && printf '#!/bin/sh\nexec sudo /usr/bin/podman "$@"\n' > /usr/local/bin/podman \
-    && chmod +x /usr/local/bin/podman
+    && chmod +x /usr/local/bin/podman \
+    && mkdir -p /etc/containers && printf '%s\n' \
+        '[storage]' \
+        'driver = "overlay"' \
+        "graphroot = \"/home/$USERNAME/.local/share/containers/storage\"" \
+        "runroot = \"/home/$USERNAME/.local/share/containers/run\"" \
+        > /etc/containers/storage.conf
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -75,7 +81,7 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}
 ARG BREW_TAPS="terraform-linters/tap hashicorp/tap"
 RUN for t in $BREW_TAPS; do brew tap "$t" && { brew trust "$t" || true; }; done
 
-ARG BREW_FORMULAE="ansible awscli azure-cli cloudflare-wrangler cloudflared docker docker-compose fzf gh go gum hadolint hashicorp/tap/terraform helm helmfile htop jq k9s kubectl kubectx kustomize lazygit lazysql mosh nano node pre-commit sops sqlite tailscale uv watch yq zellij zstd"
+ARG BREW_FORMULAE="ansible awscli azure-cli cloudflare-wrangler cloudflared docker docker-compose fzf gh go golangci-lint gum hadolint hashicorp/tap/terraform helm helmfile htop jq k9s kubectl kubectx kustomize lazygit lazysql mosh nano node pre-commit shellcheck sops sqlite tailscale uv watch yq zellij zstd"
 RUN brew install $BREW_FORMULAE
 
 ARG BREW_CASKS="claude-code@latest gcloud-cli tflint"
