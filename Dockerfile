@@ -86,6 +86,9 @@ RUN for c in $BREW_CASKS; do \
       fi; \
     done
 
+RUN gcloud components install gke-gcloud-auth-plugin --quiet
+ENV PATH="/home/linuxbrew/.linuxbrew/share/google-cloud-sdk/bin:${PATH}"
+
 USER root
 COPY sshd_config /etc/ssh/dev-container-sshd.conf
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
