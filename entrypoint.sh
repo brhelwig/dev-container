@@ -69,10 +69,33 @@ start_zellij() {
         || echo "zellij: failed to create session 'dev'" >&2
 }
 
+configure_docker_cli() {
+    local cfg="$HOME/.docker/config.json"
+    [ -s "$cfg" ] && return 0
+    mkdir -p "$HOME/.docker"
+    printf '{\n  "cliPluginsExtraDirs": ["/home/linuxbrew/.linuxbrew/lib/docker/cli-plugins"]\n}\n' > "$cfg"
+}
+
+start_podman_socket() {
+    local sock_dir="/run/podman"
+    local sock_path="$sock_dir/podman.sock"
+    sudo mkdir -p "$sock_dir"
+    sudo podman system service --time=0 "unix://$sock_path" \
+        >> "$HOME/.podman-socket.log" 2>&1 &
+    for _ in $(seq 1 50); do
+        [ -S "$sock_path" ] && break
+        sleep 0.1
+    done
+    sudo chmod 666 "$sock_path"
+    echo "podman socket: listening at $sock_path"
+}
+
 seed_home
 seed_authorized_keys
+configure_docker_cli
 start_sshd
 start_tailscale
+start_podman_socket
 start_vscode_tunnel
 start_zellij
 
