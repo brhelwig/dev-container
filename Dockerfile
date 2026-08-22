@@ -26,7 +26,13 @@ RUN mkdir -p /etc/containers/registries.conf.d \
     && printf 'unqualified-search-registries = ["docker.io"]\n' \
         > /etc/containers/registries.conf.d/00-unqualified-docker.conf \
     && printf '#!/bin/sh\nexec sudo /usr/bin/podman "$@"\n' > /usr/local/bin/podman \
-    && chmod +x /usr/local/bin/podman
+    && chmod +x /usr/local/bin/podman \
+    && mkdir -p /etc/containers && printf '%s\n' \
+        '[storage]' \
+        'driver = "overlay"' \
+        "graphroot = \"/home/$USERNAME/.local/share/containers/storage\"" \
+        "runroot = \"/home/$USERNAME/.local/share/containers/run\"" \
+        > /etc/containers/storage.conf
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
