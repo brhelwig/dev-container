@@ -35,10 +35,12 @@ start_sshd() {
 }
 
 start_tailscale() {
-    local tailscaled
+    local tailscaled state_dir
     tailscaled="$(command -v tailscaled)"
-    sudo mkdir -p /var/lib/tailscale
-    sudo "$tailscaled" --state=/var/lib/tailscale/tailscaled.state \
+    state_dir="$HOME/.tailscale"
+    mkdir -p "$state_dir"
+    chmod 700 "$state_dir"
+    sudo "$tailscaled" --statedir="$state_dir" \
         >> "$HOME/.tailscaled.log" 2>&1 &
 
     if [ -n "${TS_AUTHKEY:-}" ]; then
