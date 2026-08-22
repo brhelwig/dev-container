@@ -57,7 +57,11 @@ RUN case "$(dpkg --print-architecture)" in \
     && /usr/local/bin/code --version
 
 RUN useradd --uid $USER_UID --create-home --shell /usr/bin/zsh $USERNAME \
-    && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
+    && printf '%s\n' \
+         "$USERNAME ALL=(ALL) NOPASSWD:ALL" \
+         'Defaults:'"$USERNAME"' secure_path="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"' \
+         > /etc/sudoers.d/$USERNAME \
+    && visudo -c -f /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
     && chown -R $USERNAME:$USERNAME "/home/$USERNAME"
 
