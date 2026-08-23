@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends $BASE_PACKAGES 
 
 RUN HOME=/etc/skel RUNZSH=no CHSH=no \
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
-    && printf 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"\n' | tee -a /etc/skel/.zshrc /etc/skel/.bashrc
+    && printf 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"\n' | tee -a /etc/skel/.zshrc /etc/skel/.bashrc \
+    && printf 'PROMPT="%%F{cyan}%%m%%f $PROMPT"\n' >> /etc/skel/.zshrc
 
 ARG APT_PACKAGES="podman"
 RUN apt-get update && apt-get install -y --no-install-recommends $APT_PACKAGES \
