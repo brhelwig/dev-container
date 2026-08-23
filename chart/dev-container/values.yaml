@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/brhelwig/dev-container
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 imagePullSecrets: []
 
@@ -40,6 +40,7 @@ resources:
 
 persistence:
   enabled: true
+  retainOnDelete: true
   storageClassName: ""
   accessModes:
     - ReadWriteOnce
