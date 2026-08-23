@@ -18,7 +18,7 @@ RUN HOME=/etc/skel RUNZSH=no CHSH=no \
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
     && printf 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"\n' | tee -a /etc/skel/.zshrc /etc/skel/.bashrc
 
-ARG APT_PACKAGES="podman"
+ARG APT_PACKAGES="mosh podman"
 RUN apt-get update && apt-get install -y --no-install-recommends $APT_PACKAGES \
     && rm -rf /var/lib/apt/lists/*
 
@@ -81,7 +81,7 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}
 ARG BREW_TAPS="terraform-linters/tap hashicorp/tap"
 RUN for t in $BREW_TAPS; do brew tap "$t" && { brew trust "$t" || true; }; done
 
-ARG BREW_FORMULAE="ansible awscli azure-cli cloudflare-wrangler cloudflared docker docker-compose fzf gh go golangci-lint gum hadolint hashicorp/tap/terraform helm helmfile htop jq k9s kubectl kubectx kustomize lazygit lazysql mosh nano node pre-commit shellcheck sops sqlite tailscale uv watch yq zellij zstd"
+ARG BREW_FORMULAE="ansible awscli azure-cli cloudflare-wrangler cloudflared docker docker-compose fzf gh go golangci-lint gum hadolint hashicorp/tap/terraform helm helmfile htop jq k9s kubectl kubectx kustomize lazygit lazysql nano node pre-commit shellcheck sops sqlite tailscale uv watch yq zellij zstd"
 RUN brew install $BREW_FORMULAE
 
 ARG BREW_CASKS="claude-code@latest gcloud-cli tflint"
