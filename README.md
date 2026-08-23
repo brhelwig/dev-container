@@ -15,6 +15,13 @@ and on manual dispatch. Most of what it installs (Homebrew formulae, k3s,
 the VS Code CLI) tracks an upstream "latest" channel, so `:latest` drifts
 over time — there is no pinned or dated tag.
 
+Each publish pushes per-platform images by digest before tagging the merged
+manifest, so a `Clean up package versions` workflow runs afterward and
+removes the untagged versions no current tag points to. Deleting versions
+needs more than the `packages: write` the default token already has for
+publishing — the package must grant this repository the Admin role under
+its Settings → "Manage Actions access", or cleanup runs will fail.
+
 ## FreeCAD variant
 
 A second image, `:freecad`, layers a headless CAD toolchain on top of

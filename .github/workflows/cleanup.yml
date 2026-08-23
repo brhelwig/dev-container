@@ -1,0 +1,31 @@
+name: Clean up package versions
+
+# The build publishes each platform by digest (untagged) and then tags only
+# the merged manifest list, so every publish leaves the previous tag's
+# now-unreferenced digests behind. This runs after either publish workflow
+# finishes and removes untagged versions nothing currently tagged points to.
+on:
+  workflow_run:
+    workflows: ["Build and publish", "Build and publish (freecad)"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Log what would be deleted without deleting it'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  packages: write
+
+jobs:
+  cleanup:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          delete-untagged: true
+          validate: true
+          dry-run: ${{ inputs.dry-run || false }}
