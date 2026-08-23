@@ -18,43 +18,43 @@ to give them that inside a container. This means:
 
 ## Install
 
+Images are published as arch-suffixed tags (`latest-amd64`, `latest-arm64`),
+not a combined multi-arch manifest, so `arch` is required — it selects the
+matching tag and pins scheduling via `kubernetes.io/arch` in one setting:
+
 ```sh
-helm install dev chart/dev-container
+helm install dev chart/dev-container --set arch=arm64
 kubectl exec -it statefulset/dev-dev-container -- zsh
 ```
 
 ## Examples
 
-Docker Desktop, defaults are already fine for its `hostpath` StorageClass:
+Docker Desktop on Apple Silicon, defaults are already fine for its `hostpath`
+StorageClass:
 
 ```sh
-helm install dev chart/dev-container
+helm install dev chart/dev-container --set arch=arm64
 ```
 
 GKE, pinned to a nodepool and its regional persistent-disk storage class:
 
 ```sh
 helm install dev chart/dev-container \
+  --set arch=amd64 \
   --set persistence.storageClassName=standard-rwo \
   --set nodeSelector."cloud\.google\.com/gke-nodepool"=dev-pool
-```
-
-Pin to one architecture on a mixed-arch nodepool:
-
-```sh
-helm install dev chart/dev-container --set arch=arm64
 ```
 
 Bind to a PVC you already created instead of letting the chart make one:
 
 ```sh
-helm install dev chart/dev-container --set persistence.existingClaim=my-home-pvc
+helm install dev chart/dev-container --set arch=arm64 --set persistence.existingClaim=my-home-pvc
 ```
 
 Keyless SSH login:
 
 ```sh
-helm install dev chart/dev-container \
+helm install dev chart/dev-container --set arch=arm64 \
   --set sshAuthorizedKeys[0]="ssh-ed25519 AAAA... me@laptop"
 ```
 
@@ -71,7 +71,7 @@ chart never takes the key as a plain value):
 
 ```sh
 kubectl create secret generic ts-authkey --from-literal=authkey=tskey-...
-helm install dev chart/dev-container --set tailscale.authKeySecretName=ts-authkey
+helm install dev chart/dev-container --set arch=arm64 --set tailscale.authKeySecretName=ts-authkey
 ```
 
 GKE Workload Identity, once the cluster/nodepool has it enabled and the GCP
@@ -79,7 +79,7 @@ IAM binding is in place (`gcloud iam service-accounts add-iam-policy-binding
 <gsa> --role roles/iam.workloadIdentityUser --member "serviceAccount:<project>.svc.id.goog[<namespace>/dev-dev-container]"`):
 
 ```sh
-helm install dev chart/dev-container \
+helm install dev chart/dev-container --set arch=amd64 \
   --set serviceAccount.annotations."iam\.gke\.io/gcp-service-account"=my-gsa@my-project.iam.gserviceaccount.com
 ```
 
@@ -89,7 +89,7 @@ helm install dev chart/dev-container \
 fleet of personal dev containers in a single namespace:
 
 ```sh
-helm install alice chart/dev-container -n dev --set fullnameOverride=alice-dev
+helm install alice chart/dev-container -n dev --set arch=arm64 --set fullnameOverride=alice-dev
 ```
 
 That gives a StatefulSet `alice-dev` and a pod `alice-dev-0`. The image's
@@ -145,15 +145,15 @@ deliver it.
 | Key | Default | Description |
 | --- | --- | --- |
 | `image.repository` | `ghcr.io/brhelwig/dev-container` | Image to run |
-| `image.tag` | `latest` | Image tag |
-| `image.pullPolicy` | `Always` | Re-pulls the image every time the container starts, so restarting the pod picks up a newly pushed `latest` |
+| `image.tag` | `latest` | Image tag, before the `-<arch>` suffix (see `arch` below) |
+| `image.pullPolicy` | `Always` | Re-pulls the image every time the container starts, so restarting the pod picks up a newly pushed tag |
 | `imagePullSecrets` | `[]` | For a private registry |
 | `command` | `[]` | Leave empty — the image's own `ENTRYPOINT` starts sshd/Tailscale/the VS Code tunnel/zellij; setting this would replace it entirely |
 | `args` | `["sleep", "infinity"]` | Overrides only the image's `CMD` (an interactive shell with nothing to run without a tty), keeping the pod alive |
 | `sshAuthorizedKeys` | `[]` | Public keys to seed into `~/.ssh/authorized_keys` for keyless SSH login |
 | `tailscale.authKeySecretName` | `""` | Secret holding a Tailscale auth key, for unattended `tailscale up`; leave empty to do it manually via `exec` instead |
 | `tailscale.authKeySecretKey` | `authkey` | Key within that Secret |
-| `arch` | `""` | `amd64` or `arm64` to pin scheduling via `kubernetes.io/arch`; empty lets either run |
+| `arch` | `""` (required) | `amd64` or `arm64` — selects the matching `image.tag-<arch>` image and pins scheduling via `kubernetes.io/arch`. Images are published as arch-suffixed tags rather than a multi-arch manifest, so this must be set |
 | `nodeSelector` | `{}` | Arbitrary node selection, e.g. a GKE nodepool label |
 | `affinity` | `{}` | |
 | `tolerations` | `[]` | |
