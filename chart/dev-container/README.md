@@ -83,13 +83,70 @@ helm install dev chart/dev-container \
   --set serviceAccount.annotations."iam\.gke\.io/gcp-service-account"=my-gsa@my-project.iam.gserviceaccount.com
 ```
 
+## Running one per person
+
+`fullnameOverride` names every object in a release, so one chart can back a
+fleet of personal dev containers in a single namespace:
+
+```sh
+helm install alice chart/dev-container -n dev --set fullnameOverride=alice-dev
+```
+
+That gives a StatefulSet `alice-dev` and a pod `alice-dev-0`. The image's
+`entrypoint.sh` runs `tailscale up --hostname="$(hostname)"`, so the pod name
+becomes the Tailscale device name and its MagicDNS entry too.
+
+Keep what everyone shares in one values file and the per-person differences —
+the name, the service account, the keys — in a second one layered on top:
+
+```sh
+helm install alice chart/dev-container -n dev -f common.yaml -f alice.yaml
+```
+
+### First login
+
+A freshly provisioned volume has an empty `~/.ssh/authorized_keys`, so SSH is
+closed until a key is added. `sshAuthorizedKeys` seeds keys from values; to
+keep keys out of a values file altogether, add one after the first install:
+
+```sh
+kubectl exec -i -n <namespace> <release>-0 -- \
+  sh -c 'cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys' \
+  < ~/.ssh/id_ed25519.pub
+```
+
+It persists from then on, since `/home/dev` is on the volume. Tailscale also
+starts unauthenticated on a new volume, so connect it once:
+
+```sh
+kubectl exec -it -n <namespace> <release>-0 -- sudo tailscale up
+```
+
+### Sizing to a node
+
+To give the pod a machine to itself, size requests against what the node
+actually has free rather than the machine's advertised size. Allocatable is
+well below capacity, and system DaemonSets take a further cut:
+
+```sh
+kubectl get node <node> \
+  -o jsonpath='{.status.allocatable.cpu} {.status.allocatable.memory}{"\n"}'
+```
+
+On a 2 vCPU / 8Gi machine that leaves roughly 1.9 CPU and 5.8Gi allocatable,
+of which DaemonSets request a few hundred millicores and a few hundred Mi.
+Requests near that remainder stop a second pod landing on the node. Limits a
+little under allocatable let the container burst without driving the node out
+of memory. A limit above allocatable buys nothing, since the node cannot
+deliver it.
+
 ## Values
 
 | Key | Default | Description |
 | --- | --- | --- |
 | `image.repository` | `ghcr.io/brhelwig/dev-container` | Image to run |
 | `image.tag` | `latest` | Image tag |
-| `image.pullPolicy` | `IfNotPresent` | |
+| `image.pullPolicy` | `Always` | Re-pulls the image every time the container starts, so restarting the pod picks up a newly pushed `latest` |
 | `imagePullSecrets` | `[]` | For a private registry |
 | `command` | `[]` | Leave empty — the image's own `ENTRYPOINT` starts sshd/Tailscale/the VS Code tunnel/zellij; setting this would replace it entirely |
 | `args` | `["sleep", "infinity"]` | Overrides only the image's `CMD` (an interactive shell with nothing to run without a tty), keeping the pod alive |
@@ -100,11 +157,12 @@ helm install dev chart/dev-container \
 | `nodeSelector` | `{}` | Arbitrary node selection, e.g. a GKE nodepool label |
 | `affinity` | `{}` | |
 | `tolerations` | `[]` | |
-| `resources.requests.cpu` | `2` | |
+| `resources.requests.cpu` | `1000m` | |
 | `resources.requests.memory` | `4Gi` | |
-| `resources.limits.cpu` | `4` | |
+| `resources.limits.cpu` | `4000m` | |
 | `resources.limits.memory` | `8Gi` | |
 | `persistence.enabled` | `true` | Set `false` for an ephemeral `emptyDir` home instead |
+| `persistence.retainOnDelete` | `true` | Annotates the PVC `helm.sh/resource-policy: keep`, so `helm uninstall` leaves the home directory behind. Set `false` for a throwaway sandbox whose volume should go with the release |
 | `persistence.size` | `20Gi` | |
 | `persistence.storageClassName` | `""` | Empty uses the cluster's default StorageClass |
 | `persistence.accessModes` | `["ReadWriteOnce"]` | |
