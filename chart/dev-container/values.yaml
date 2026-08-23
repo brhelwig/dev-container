@@ -24,6 +24,9 @@ tailscale:
   authKeySecretName: ""
   authKeySecretKey: authkey
 
+# Required: amd64 or arm64. Images are published as arch-suffixed tags
+# (e.g. latest-amd64), so this both selects the image and pins scheduling
+# via kubernetes.io/arch.
 arch: ""
 
 nodeSelector: {}
