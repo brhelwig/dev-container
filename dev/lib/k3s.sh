@@ -219,7 +219,7 @@ k3s_down() {
             || umount -l "$DEV_K3S_STATE_DIR" 2>/dev/null || true
     fi
     waited=0
-    while [ -n "$(k3s_loop)" ] && [ "$waited" -lt 5 ]; do
+    while [ -n "$(k3s_loop)" ] && [ "$waited" -lt 30 ]; do
         losetup -d "$(k3s_loop)" 2>/dev/null || true
         [ -n "$(k3s_loop)" ] || break
         sleep 1
