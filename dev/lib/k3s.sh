@@ -8,6 +8,7 @@ DEV_K3S_SOURCE_CONFIG=/etc/rancher/k3s/k3s.yaml
 DEV_K3S_LOG=/var/log/k3s.log
 DEV_K3S_BRIDGE=br-k3s
 DEV_K3S_PATTERN='^/usr/local/bin/k3s server'
+DEV_K3S_SHIM_PATTERN='containerd-shim-runc-v2 .* -address /run/k3s/containerd'
 
 k3s_usage() {
     cat <<'EOF'
@@ -58,6 +59,23 @@ k3s_in_userns() {
     read -r first _ count < /proc/self/uid_map 2>/dev/null || return 1
     [ "$first" = 0 ] && [ "$count" = 4294967295 ] && return 1
     return 0
+}
+
+k3s_kill_containers() {
+    local pids parents children pid
+    pids="$(pgrep -f "$DEV_K3S_SHIM_PATTERN" 2>/dev/null || true)"
+    parents="$pids"
+    while [ -n "$parents" ]; do
+        children=""
+        for pid in $parents; do
+            children="$children $(pgrep -P "$pid" 2>/dev/null || true)"
+        done
+        parents="$children"
+        pids="$pids $children"
+    done
+    for pid in $pids; do
+        kill -9 "$pid" 2>/dev/null || true
+    done
 }
 
 k3s_as_root() {
@@ -206,8 +224,8 @@ k3s_down() {
     k3s_as_root down
     local image loop waited=0
     pkill -f "$DEV_K3S_PATTERN" 2>/dev/null || true
-    pkill -f 'containerd-shim' 2>/dev/null || true
     while k3s_running && [ "$waited" -lt 20 ]; do sleep 1; waited=$((waited + 1)); done
+    k3s_kill_containers
     awk '{print $2}' /proc/mounts \
         | grep -E '^(/var/lib/rancher/|/var/lib/kubelet|/run/k3s|/run/netns)' \
         | sort -r \
