@@ -136,8 +136,7 @@ k3s_write_kubeconfig() {
 
 k3s_publish_kubeconfig() {
     (
-        local i
-        for i in $(seq 1 120); do
+        for _ in $(seq 1 120); do
             [ -s "$DEV_K3S_SOURCE_CONFIG" ] && break
             sleep 1
         done
@@ -147,8 +146,8 @@ k3s_publish_kubeconfig() {
 
 k3s_deprioritize_server() {
     (
-        local pid adj i
-        for i in $(seq 1 180); do
+        local pid adj
+        for _ in $(seq 1 180); do
             pid="$(pgrep -f "$DEV_K3S_PATTERN" | head -1)"
             if [ -n "$pid" ]; then
                 adj="$(cat "/proc/$pid/oom_score_adj" 2>/dev/null || echo 0)"

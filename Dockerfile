@@ -115,8 +115,8 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/dev \
     && for t in dev bash zsh ionice losetup findmnt mkfs.ext4 truncate; do \
          command -v "$t" > /dev/null || { echo "missing: $t" >&2; exit 1; }; \
        done \
-    && bash -n /usr/local/bin/entrypoint.sh /usr/local/bin/dev \
-    && for m in /usr/local/lib/dev/*.sh /etc/dev-nice.sh; do bash -n "$m"; done
+    && shellcheck -x -S warning /usr/local/bin/dev /usr/local/bin/entrypoint.sh \
+         /usr/local/lib/dev/*.sh /etc/dev-nice.sh
 
 ENV KUBECONFIG=/var/lib/dev/kube/config:/var/lib/dev/kube/k3s.yaml
 

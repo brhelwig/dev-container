@@ -24,10 +24,10 @@ podman_brief() { podman_running && echo "${DOCKER_HOST:-$DEV_PODMAN_SOCKET}"; re
 podman_up() {
     if podman_running; then echo "the podman socket is already listening"; return 0; fi
     sudo mkdir -p "$(dirname "$DEV_PODMAN_SOCKET")"
+    # shellcheck disable=SC2024
     sudo podman system service --time=0 "unix://$DEV_PODMAN_SOCKET" \
         >> "$DEV_PODMAN_LOG" 2>&1 &
-    local i
-    for i in $(seq 1 50); do
+    for _ in $(seq 1 50); do
         [ -S "$DEV_PODMAN_SOCKET" ] && break
         sleep 0.1
     done

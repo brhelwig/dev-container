@@ -35,6 +35,7 @@ ts_up() {
     else
         mkdir -p "$DEV_TS_STATE_DIR"
         chmod 700 "$DEV_TS_STATE_DIR"
+        # shellcheck disable=SC2024
         sudo "$(command -v tailscaled)" --statedir="$DEV_TS_STATE_DIR" \
             >> "$DEV_TS_LOG" 2>&1 &
         sleep 1

@@ -1,3 +1,5 @@
+# shellcheck shell=sh
+
 dev_deprioritize() {
     renice -n 10 -p $$ > /dev/null 2>&1
     ionice -c 3 -p $$ > /dev/null 2>&1

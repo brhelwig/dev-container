@@ -6,6 +6,7 @@ NICE_LIB="${DEV_NICE_LIB:-/etc/dev-nice.sh}"
 WELCOME_MARKER="${DEV_WELCOME_MARKER:-/tmp/.dev-welcomed}"
 SERVICES=(ssh code ts podman k3s)
 
+# shellcheck source=/dev/null
 load() { . "$LIB_DIR/$1.sh"; }
 
 load_all() { local s; for s in "${SERVICES[@]}"; do load "$s"; done; }
@@ -72,15 +73,16 @@ bg() {
         echo "usage: dev bg <command> [args...]" >&2
         return 2
     fi
+    # shellcheck source=/dev/null
     . "$NICE_LIB"
     dev_deprioritize
     exec "$@"
 }
 
 welcome() {
+    [ -t 1 ] || return 0
     [ -e "$WELCOME_MARKER" ] && return 0
     : > "$WELCOME_MARKER" 2>/dev/null || return 0
-    [ -t 1 ] || return 0
     printf '\n  \033[2mWelcome.\033[0m Run \033[1mdev help\033[0m for what this container runs.\n\n'
 }
 
