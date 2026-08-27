@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LIB_DIR="${DEV_LIB_DIR:-/usr/local/lib/dev}"
+NICE_LIB="${DEV_NICE_LIB:-/etc/dev-nice.sh}"
+WELCOME_MARKER="${DEV_WELCOME_MARKER:-/tmp/.dev-welcomed}"
+SERVICES=(ssh code ts podman k3s)
+
+load() { . "$LIB_DIR/$1.sh"; }
+
+load_all() { local s; for s in "${SERVICES[@]}"; do load "$s"; done; }
+
+usage() {
+    cat <<'EOF'
+Drive the services this container runs.
+
+  dev                          a menu of the services and what they are doing
+  dev status                   one line for each service
+  dev ssh     up|down|status   the SSH server
+  dev code    login|up|down|status
+                               the VS Code tunnel
+  dev ts      up|down|status   tailscale
+  dev podman  up|down|status   the podman socket that DOCKER_HOST names
+  dev k3s     up|down|status   the single-node Kubernetes cluster
+  dev bg <command>             run a command as background work
+  dev help                     this page
+
+The entrypoint starts ssh, tailscale, podman and the tunnel at launch. Every
+verb here drives what the entrypoint started, so "up" on something already
+running says so and stops.
+
+Add --help to any service for what it does and where its log is.
+EOF
+}
+
+state() { "${1}_running" >/dev/null 2>&1 && echo running || echo stopped; }
+
+line() {
+    local brief
+    brief="$("${1}_brief" 2>/dev/null || true)"
+    if [ -n "$brief" ]; then
+        printf '%-8s %-8s %s' "$1" "$(state "$1")" "$brief"
+    else
+        printf '%-8s %s' "$1" "$(state "$1")"
+    fi
+}
+
+status_all() {
+    load_all
+    local s
+    for s in "${SERVICES[@]}"; do line "$s"; echo; done
+}
+
+menu() {
+    if [ ! -t 0 ] || ! command -v gum >/dev/null 2>&1; then
+        status_all
+        echo
+        usage
+        return 0
+    fi
+    load_all
+    local s lines=() pick svc verb
+    for s in "${SERVICES[@]}"; do lines+=("$(line "$s")"); done
+    pick="$(gum choose --header 'Which service?' "${lines[@]}")" || return 0
+    svc="${pick%% *}"
+    verb="$("${svc}_verbs" | gum choose --header "dev $svc")" || return 0
+    "${svc}_${verb}"
+}
+
+bg() {
+    if [ "$#" -eq 0 ]; then
+        echo "usage: dev bg <command> [args...]" >&2
+        return 2
+    fi
+    . "$NICE_LIB"
+    dev_deprioritize
+    exec "$@"
+}
+
+welcome() {
+    [ -e "$WELCOME_MARKER" ] && return 0
+    : > "$WELCOME_MARKER" 2>/dev/null || return 0
+    [ -t 1 ] || return 0
+    printf '\n  \033[2mWelcome.\033[0m Run \033[1mdev help\033[0m for what this container runs.\n\n'
+}
+
+service() {
+    local svc="$1"
+    shift
+    load "$svc"
+    local verb="${1:-status}"
+    shift || true
+    if [ "$verb" = "-h" ] || [ "$verb" = "--help" ]; then
+        "${svc}_usage"
+        return 0
+    fi
+    if ! "${svc}_verbs" | grep -qxF "$verb"; then
+        echo "usage: dev $svc [$("${svc}_verbs" | paste -sd'|' -)]" >&2
+        return 2
+    fi
+    "${svc}_${verb}" "$@"
+}
+
+main() {
+    local cmd="${1:-}"
+    shift || true
+    case "$cmd" in
+        "") menu ;;
+        ssh|code|ts|podman|k3s) service "$cmd" "$@" ;;
+        status) status_all ;;
+        bg) bg "$@" ;;
+        welcome) welcome ;;
+        help|-h|--help) usage ;;
+        *)
+            echo "dev: no such command '$cmd'" >&2
+            usage >&2
+            return 2
+            ;;
+    esac
+}
+
+main "$@"
