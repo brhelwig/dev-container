@@ -8,6 +8,7 @@ DEV_K3S_SOURCE_CONFIG=/etc/rancher/k3s/k3s.yaml
 DEV_K3S_LOG=/var/log/k3s.log
 DEV_K3S_BRIDGE=br-k3s
 DEV_K3S_PATTERN='^/usr/local/bin/k3s server'
+DEV_K3S_SHIM_PATTERN='containerd-shim-runc-v2 .* -address /run/k3s/containerd'
 
 k3s_usage() {
     cat <<'EOF'
@@ -52,6 +53,30 @@ k3s_home() {
 k3s_image() { printf '%s/.dev-k3s.img\n' "$(k3s_home)"; }
 
 k3s_loop() { losetup -j "$(k3s_image)" 2>/dev/null | head -1 | cut -d: -f1; }
+
+k3s_in_userns() {
+    local first count
+    read -r first _ count < /proc/self/uid_map 2>/dev/null || return 1
+    [ "$first" = 0 ] && [ "$count" = 4294967295 ] && return 1
+    return 0
+}
+
+k3s_kill_containers() {
+    local pids parents children pid
+    pids="$(pgrep -f "$DEV_K3S_SHIM_PATTERN" 2>/dev/null || true)"
+    parents="$pids"
+    while [ -n "$parents" ]; do
+        children=""
+        for pid in $parents; do
+            children="$children $(pgrep -P "$pid" 2>/dev/null || true)"
+        done
+        parents="$children"
+        pids="$pids $children"
+    done
+    for pid in $pids; do
+        kill -9 "$pid" 2>/dev/null || true
+    done
+}
 
 k3s_as_root() {
     [ "$(id -u)" -eq 0 ] && return 0
@@ -181,10 +206,15 @@ k3s_up() {
     [ -s /etc/machine-id ] || tr -d '-' < /proc/sys/kernel/random/uuid > /etc/machine-id
     k3s_write_kubeconfig
     k3s_publish_kubeconfig
+    local extra=()
+    if k3s_in_userns; then
+        extra+=(--kubelet-arg=feature-gates=KubeletInUserNamespace=true)
+    fi
     setsid nohup /usr/local/bin/dev bg /usr/local/bin/k3s server \
         --write-kubeconfig-mode 644 \
         --node-ip "$DEV_K3S_NODE_IP" \
         --flannel-iface "$DEV_K3S_BRIDGE" \
+        "${extra[@]}" \
         >> "$DEV_K3S_LOG" 2>&1 < /dev/null &
     k3s_deprioritize_server
     echo "k3s: starting in the background; watch it with: dev k3s status"
@@ -192,24 +222,32 @@ k3s_up() {
 
 k3s_down() {
     k3s_as_root down
-    local image waited=0
+    local image loop waited=0
     pkill -f "$DEV_K3S_PATTERN" 2>/dev/null || true
-    pkill -f 'containerd-shim' 2>/dev/null || true
     while k3s_running && [ "$waited" -lt 20 ]; do sleep 1; waited=$((waited + 1)); done
+    k3s_kill_containers
     awk '{print $2}' /proc/mounts \
-        | grep -E '^/(var/lib/(rancher|kubelet)|run/(k3s|netns))' \
+        | grep -E '^(/var/lib/rancher/|/var/lib/kubelet|/run/k3s|/run/netns)' \
         | sort -r \
         | while read -r m; do umount "$m" 2>/dev/null || umount -l "$m" 2>/dev/null || true; done || true
-    umount "$DEV_K3S_STATE_DIR" 2>/dev/null || umount -l "$DEV_K3S_STATE_DIR" 2>/dev/null || true
     image="$(k3s_image)"
+    loop="$(k3s_loop)"
+    if [ -n "$loop" ] && [ "$(findmnt -rno SOURCE "$DEV_K3S_STATE_DIR" 2>/dev/null)" = "$loop" ]; then
+        umount "$DEV_K3S_STATE_DIR" 2>/dev/null \
+            || umount -l "$DEV_K3S_STATE_DIR" 2>/dev/null || true
+    fi
     waited=0
-    while [ -n "$(k3s_loop)" ] && [ "$waited" -lt 5 ]; do
+    while [ -n "$(k3s_loop)" ] && [ "$waited" -lt 30 ]; do
         losetup -d "$(k3s_loop)" 2>/dev/null || true
         [ -n "$(k3s_loop)" ] || break
         sleep 1
         waited=$((waited + 1))
     done
-    echo "k3s: stopped; cluster state kept in $image"
+    if [ -f "$image" ]; then
+        echo "k3s: stopped; cluster state kept in $image"
+    else
+        echo "k3s: stopped; cluster state kept in $DEV_K3S_STATE_DIR"
+    fi
 }
 
 k3s_status() {
