@@ -85,7 +85,7 @@ k3s_prepare_kernel() {
 }
 
 k3s_prepare_cgroups() {
-    local type procs pid
+    local type procs pid available wanted enable=""
     type="$(cat /sys/fs/cgroup/cgroup.type 2>/dev/null || echo domain)"
     if [ "$type" = "domain threaded" ]; then
         echo "error: the root cgroup is 'domain threaded', which the kernel" >&2
@@ -98,8 +98,20 @@ k3s_prepare_cgroups() {
     for pid in $procs; do
         printf '%s\n' "$pid" > /sys/fs/cgroup/init/cgroup.procs 2>/dev/null || true
     done
-    if ! printf '%s\n' '+cpuset +cpu +io +memory +hugetlb +pids' \
-            > /sys/fs/cgroup/cgroup.subtree_control 2>/dev/null; then
+    available=" $(cat /sys/fs/cgroup/cgroup.controllers 2>/dev/null) "
+    for wanted in cpuset cpu io memory hugetlb pids; do
+        case "$available" in *" $wanted "*) enable="$enable +$wanted" ;; esac
+    done
+    for wanted in cpuset cpu memory pids; do
+        case "$enable" in
+            *"+$wanted"*) ;;
+            *)
+                echo "error: the kernel offers no $wanted controller here, and" >&2
+                echo "kubelet does not run without it. Available:${available%% }" >&2
+                return 1 ;;
+        esac
+    done
+    if ! printf '%s\n' "${enable# }" > /sys/fs/cgroup/cgroup.subtree_control 2>/dev/null; then
         echo "error: cannot delegate cgroup controllers to kubelet. The" >&2
         echo "container is most likely missing CAP_SYS_ADMIN — run it with" >&2
         echo "--privileged, or with privileged: true under the Helm chart." >&2
@@ -162,10 +174,10 @@ k3s_deprioritize_server() {
 k3s_up() {
     k3s_as_root up
     if k3s_running; then echo "k3s is already running"; return 0; fi
-    k3s_mount_state
     k3s_prepare_kernel
     k3s_prepare_cgroups
     k3s_prepare_network
+    k3s_mount_state
     [ -s /etc/machine-id ] || tr -d '-' < /proc/sys/kernel/random/uuid > /etc/machine-id
     k3s_write_kubeconfig
     k3s_publish_kubeconfig

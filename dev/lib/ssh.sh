@@ -55,11 +55,7 @@ ssh_report_reach() {
     local port user addr
     user="$(id -un)"
     port="$(cat "$DEV_SSH_PORT_FILE" 2>/dev/null || true)"
-    if [ -n "$port" ]; then
-        echo "from the host: ssh -p $port $user@127.0.0.1"
-    else
-        echo "listening on port 22 inside the container"
-    fi
+    [ -n "$port" ] && echo "from the host: ssh -p $port $user@127.0.0.1"
     addr="$(tailscale ip -4 2>/dev/null | head -1 || true)"
     [ -n "$addr" ] && echo "over the tailnet: ssh $user@$addr"
     return 0
@@ -92,7 +88,7 @@ ssh_up() {
     sudo chmod 0755 "$DEV_SSHD_PRIVSEP_DIR"
     sudo "$DEV_SSHD" -f "$DEV_SSHD_CONFIG" -h "$DEV_SSH_HOST_KEY" \
         -o "PidFile=$DEV_SSHD_PID_FILE" -E "$DEV_SSH_LOG"
-    echo "ssh: listening on port 22"
+    echo "ssh: listening on port 22 in the container"
     ssh_report_reach
 }
 
@@ -110,6 +106,6 @@ ssh_status() {
         [ -s "$DEV_SSH_LOG" ] && tail -n 5 "$DEV_SSH_LOG" | sed 's/^/log: /'
         return 1
     fi
-    echo "ssh: running, $(ssh_key_count) authorized key(s)"
+    echo "ssh: listening on port 22 in the container, $(ssh_key_count) authorized key(s)"
     ssh_report_reach
 }

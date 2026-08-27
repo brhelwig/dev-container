@@ -27,7 +27,7 @@ podman_up() {
     # shellcheck disable=SC2024
     sudo podman system service --time=0 "unix://$DEV_PODMAN_SOCKET" \
         >> "$DEV_PODMAN_LOG" 2>&1 &
-    for _ in $(seq 1 50); do
+    for _ in $(seq 1 300); do
         [ -S "$DEV_PODMAN_SOCKET" ] && break
         sleep 0.1
     done

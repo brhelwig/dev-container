@@ -102,6 +102,8 @@ ENV PATH="/home/linuxbrew/.linuxbrew/share/google-cloud-sdk/bin:${PATH}"
 
 ENV DOCKER_HOST="unix:///run/podman/podman.sock"
 
+ENV KUBECONFIG=/var/lib/dev/kube/config:/var/lib/dev/kube/k3s.yaml
+
 USER root
 COPY sshd_config /etc/ssh/dev-container-sshd.conf
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
@@ -115,10 +117,10 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/dev \
     && for t in dev bash zsh ionice losetup findmnt mkfs.ext4 truncate; do \
          command -v "$t" > /dev/null || { echo "missing: $t" >&2; exit 1; }; \
        done \
+    && printf 'PATH="%s"\nDOCKER_HOST="%s"\nKUBECONFIG="%s"\n' \
+         "$PATH" "$DOCKER_HOST" "$KUBECONFIG" > /etc/environment \
     && shellcheck -x -S warning /usr/local/bin/dev /usr/local/bin/entrypoint.sh \
          /usr/local/lib/dev/*.sh /etc/dev-nice.sh
-
-ENV KUBECONFIG=/var/lib/dev/kube/config:/var/lib/dev/kube/k3s.yaml
 
 USER $USERNAME
 WORKDIR $HOME
